@@ -159,9 +159,9 @@
         <link source="fsdir" destination="extract_wm_regressors.fsdir"/>
         <link source="fsdir" destination="extract_csf_regressors.fsdir"/>
         <link source="sid" destination="extract_csf_regressors.sid"/>
-        <link source="sid" destination="extract_csf_regressors.sid"/>
+        <link source="sid" destination="extract_wm_regressors.sid"/>
         <link source="w2w_mat_file" destination="extract_csf_regressors.w2wmap_file"/>
-        <link source="w2w_mat_file" destination="extract_csf_regressors.w2wmap_file"/>
+        <link source="w2w_mat_file" destination="extract_wm_regressors.w2wmap_file"/>
         <link source="fmri_sessions" destination="list_to_element_adapter.listobj"/>
         <link source="nb_extra_covars" destination="extract_csf_regressors.nb_covars"/>
         <link source="nb_extra_covars" destination="extract_wm_regressors.nb_covars"/>
