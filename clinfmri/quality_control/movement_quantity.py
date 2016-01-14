@@ -77,26 +77,26 @@ def time_serie_mq(image_file, realignment_parameters, package,
                          "valid.".format(realignment_parameters))
 
     # Go through all volumes
-    displacments = []
+    displacements = []
     for rigid_params in rparams:
 
         # Get the rigid transformation
         rigid_matrix = get_rigid_matrix(rigid_params, package)
 
         # Estimate the max displacment
-        displacments.append(
+        displacements.append(
             movement_quantity(rigid_matrix, shape, affine, metric="max")[0])
 
     # Save the result in a json
     displacement_file = os.path.join(output_directory, "max_displacement.json")
     with open(displacement_file, "w") as json_data:
-        json.dump(displacments, json_data)
+        json.dump(displacements, json_data)
 
     # Display the parameter temporal drift
     snap_mvt = os.path.join(
         output_directory,
         os.path.basename(realignment_parameters).split(".")[0] + ".pdf")
-    display_drift(rparams, displacments, snap_mvt, package, mvt_thr, rot_thr)
+    display_drift(rparams, displacements, snap_mvt, package, mvt_thr, rot_thr)
 
     return snap_mvt, displacement_file
 
@@ -163,7 +163,7 @@ def deformation_field(rigid, shape, affine):
     mesh = numpy.meshgrid(x, y, z)
     for item in mesh:
         item.shape += (1, )
-    mesh = numpy.concatenate(mesh , axis=3)
+    mesh = numpy.concatenate(mesh, axis=3)
 
     # Apply the rigid transform
     points = field_dot(affine[:3, :3], mesh)
@@ -329,7 +329,8 @@ def display_drift(rigid_params, maxdisplacment, output_fname, package,
         for i, label in enumerate(["x", "y", "z"]):
             plot.plot(x, rigid_params[:, i], label=label)
             outliers.extend(
-                numpy.where(numpy.abs(rigid_params[:, i]) > mvt_thr)[0].tolist())
+                numpy.where(
+                    numpy.abs(rigid_params[:, i]) > mvt_thr)[0].tolist())
         for pos in set(outliers):
             plot.axvline(x=pos, linewidth=1, color="b")
         plot.legend()
@@ -347,7 +348,8 @@ def display_drift(rigid_params, maxdisplacment, output_fname, package,
         for i, label in enumerate(["pitch", "roll", "yaw"]):
             plot.plot(x, rigid_params[:, i + 3] * 180. / numpy.pi, label=label)
             outliers.extend(
-                numpy.where(numpy.abs(rigid_params[:, i + 3]) > rot_thr)[0].tolist())
+                numpy.where(
+                    numpy.abs(rigid_params[:, i + 3]) > rot_thr)[0].tolist())
         for pos in set(outliers):
             plot.axvline(x=pos, linewidth=1, color="b")
         plot.legend()
@@ -406,4 +408,3 @@ if __name__ == "__main__":
     time_serie_mq(localizer_dataset.fmri, localizer_dataset.mouvment_parameters,
                   "SPM", "/volatile/nsap/catalogue/quality_assurance/",
                   time_axis=-1, slice_axis=-2)
-

@@ -12,6 +12,7 @@ import os
 import nibabel
 import scipy.io
 import matplotlib
+import numpy
 
 # Set matplotlib backend
 matplotlib.use("AGG")
@@ -19,7 +20,7 @@ matplotlib.use("AGG")
 import matplotlib.pyplot as plt
 
 
-def spm_save_design(spm_mat_file, output_directory):
+def spm_save_design(spm_mat_file, output_directory, no_int=0):
     """ Create a snap with the design matrix values.
 
     <unit>
@@ -34,6 +35,7 @@ def spm_save_design(spm_mat_file, output_directory):
     # Get the design matrix
     spmmat = scipy.io.loadmat(spm_mat_file, struct_as_record=False)
     designmatrix = spmmat["SPM"][0][0].xX[0][0].X
+    regressor_names = spmmat["SPM"][0][0].xX[0][0].name
 
     # Create a snapshot of the design matrix
     plt.figure()
@@ -42,8 +44,19 @@ def spm_save_design(spm_mat_file, output_directory):
     plt.xlabel("parameters")
     plt.ylabel("images")
     plt.title("Statistical analysis: Design")
+
+    # add legend
+    ax.set_xticks(numpy.arange(designmatrix.shape[1]) + 0.5)
+    xlabels = [""] * designmatrix.shape[1]
+    if no_int > designmatrix.shape[1]:
+        no_int = 0
+    for index, label in enumerate(regressor_names[0][:-no_int]):
+        xlabels[index] = label[0].replace("Sn(1) ", "").replace("*bf(1)", "")
+    ax.set_xticklabels(xlabels, rotation=60, ha="right")
+
+    # save
     spm_design_snap = os.path.join(output_directory, "spm_design.png")
-    plt.savefig(spm_design_snap)
+    plt.savefig(spm_design_snap, bbox_inches='tight')
 
     return spm_design_snap
 
