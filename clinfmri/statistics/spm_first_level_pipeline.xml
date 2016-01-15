@@ -48,7 +48,6 @@
         <link source="complete_regressors" destination="first_level_pipeline.complete_regressors"/>
         <link source="concatenate_runs" destination="first_level_pipeline.concatenate_runs"/>
         <link source="fwhm" destination="first_level_pipeline.fwhm"/>
-        <link source="fsdir" destination="first_level_pipeline.fsdir"/>
         <link source="smoother_switch" destination="first_level_pipeline.smoother_switch"/>
         <link source="time_repetition" destination="first_level_pipeline.time_repetition"/>
         <link source="start" destination="first_level_pipeline.start"/>

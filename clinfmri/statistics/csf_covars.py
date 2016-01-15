@@ -245,6 +245,7 @@ def get_covars(csfmask_file, func_file, min_nb_of_voxels=20, nb_covars=5,
     # Compute a SVD
     func_array = nibabel.load(func_file).get_data()
     csftimeseries = func_array[np.where(csf_array == 1)].T
+    csftimeseries = csftimeseries.astype(float)
     csftimeseries -= csftimeseries.mean(axis=0)
     u, s, v = np.linalg.svd(csftimeseries, full_matrices=False)
     if verbose > 2:
