@@ -20,7 +20,7 @@
         <unit name="extract_regressors">
             <module>clinfmri.statistics.csf_covars.get_covars</module>
             <set name="output_directory" value="None"/>
-            <set name="min_nb_of_voxels" value="50"/>
+            <set name="min_nb_of_voxels" value="20"/>
         </unit>
     </units>
     <links>

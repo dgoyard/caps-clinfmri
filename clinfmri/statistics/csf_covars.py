@@ -141,13 +141,23 @@ def resample_image(source_file, target_file, output_directory,
 
     # erode anatomic mask if requestd
     if erode_path_nb > 0:
+        structuring_element = np.array([[[0, 0, 0],
+                                         [0, 1, 0],
+                                         [0, 0, 0]],
+                                        [[0, 1, 0],
+                                         [1, 1, 1],
+                                         [0, 1, 0]],
+                                        [[0, 0, 0],
+                                         [0, 1, 0],
+                                         [0, 0, 0]]])
         # get anatomic mask
         source_image = nibabel.load(source_file)
         source_data = source_image.get_data()
 
         eroded_image = binary_erosion(
             source_data,
-            iterations=erode_path_nb).astype(source_data.dtype)
+            iterations=erode_path_nb,
+            structure=structuring_element).astype(source_data.dtype)
 
         # save
         _temp = nibabel.Nifti1Image(eroded_image, source_image.get_affine())
@@ -168,10 +178,13 @@ def resample_image(source_file, target_file, output_directory,
         "resampled_{0}".format(os.path.basename(source_file)))
     nipy.save_image(resampled_image, resampled_file)
 
+#    if not os.path.isfile(resampled_file):
+#        raise ValueError("NO RESAMPLED FILE")
+
     return resampled_file
 
 
-def get_covars(csfmask_file, func_file, min_nb_of_voxels=20, nb_covars=5,
+def get_covars(csfmask_file, func_file, min_nb_of_voxels=50, nb_covars=5,
                verbose=0, output_directory=None):
     """ Compute covariates that represent the CSF variability in a functional
     timeserie.
@@ -235,7 +248,9 @@ def get_covars(csfmask_file, func_file, min_nb_of_voxels=20, nb_covars=5,
             csf_array = csf_tmp_array
     else:
         raise ValueError(
-            "Not enough CSF voxels in mask '{0}'.".format(csfmask_file))
+            "Not enough CSF voxels ({}) in mask '{}'.".format(
+                len(np.where(csf_array == 1)[0]),
+                csfmask_file))
     if verbose > 1:
         csf_mask = nibabel.Nifti1Image(csf_array.astype(int),
                                        csf_image.get_affine())
