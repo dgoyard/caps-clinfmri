@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 
 def time_serie_mq(image_file, realignment_parameters, package,
                   output_directory, time_axis=-1, slice_axis=-2, mvt_thr=1.5,
-                  rot_thr=0.5):
+                  rot_thr=0.5, volumes_to_ignore=0):
     """ Movement quantity (MQ) - Description of the amount of motion in a
     temporal sequence.
 
@@ -47,6 +47,8 @@ def time_serie_mq(image_file, realignment_parameters, package,
         <input name="slice_axis" type="Int" desc="Axis of the array that
             varies over image slice. The default is the last non-time axis."
              optional="True"/>
+        <input name="volumes_to_ignore" type="Int" desc="Firsts volumes of the
+            raw image are skipped in preprocessings to avoid artefacts"/>
         <input name="mvt_thr" type="Float" desc="the translation threshold
             (mm) used to detect outliers." optional="True"/>
         <input name="rot_thr" type="Float" desc="the rotation threshold (rad)
@@ -72,7 +74,7 @@ def time_serie_mq(image_file, realignment_parameters, package,
                          "volume.".format(array.ndim))
 
     # Check the realignment parameters
-    if array.shape[time_axis] != rparams.shape[0]:
+    if array.shape[time_axis] - volumes_to_ignore != rparams.shape[0]:
         raise ValueError("Realignement parameters in '{0}' are not "
                          "valid.".format(realignment_parameters))
 
@@ -254,11 +256,25 @@ def get_rigid_matrix(rigid_params, package):
 
     # Get the rotation part from Euler description
     # cf Bernad Bayle
+    #
+    #    |1    0        0   |
+    # X =|0 cos(rx) -sin(rx)| with rx C [-Pi Pi]
+    #    |0 sin(rx) cos(rx) |
+    #
+    #    |cos(ry)  0 sin(ry)|
+    # Y =|   0     1   0    | with ry C [-Pi/2, Pi/2]
+    #    |-sin(ry) 0 cos(ry)|
+    #
+    #    |cos(rz) -sin(rz) 0|
+    # Z =|sin(rz) cos(rz)  0| with rz C [-Pi, Pi]
+    #    |1         0      0|
+    #
+    # R = ZYX
     R = numpy.eye(3)
     rotfunc1 = lambda x: numpy.array([[numpy.cos(x), -numpy.sin(x)],
                                       [numpy.sin(x), numpy.cos(x)]])
-    rotfunc2 = lambda x: numpy.array([[numpy.cos(x), -numpy.sin(x)],
-                                      [numpy.sin(x), numpy.cos(x)]])
+    rotfunc2 = lambda x: numpy.array([[numpy.cos(x), numpy.sin(x)],
+                                      [-numpy.sin(x), numpy.cos(x)]])
     Rx = numpy.eye(3)
     Rx[1:3, 1:3] = rotfunc1(rigid_params[5])
     Ry = numpy.eye(3)
