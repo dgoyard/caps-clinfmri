@@ -57,6 +57,8 @@ def time_serie_mq(image_file, realignment_parameters, package,
             information." optional="True"/>
         <output name="displacement_file" type="File" desc="The maximum
             displacement within each image." optional="True"/>
+        <output name="scores" type="File" desc="score metrics "
+            "(max translation...)" optional="True"/>
     </unit>
     """
     # Load the image and get the associated numpy array
@@ -80,14 +82,19 @@ def time_serie_mq(image_file, realignment_parameters, package,
 
     # Go through all volumes
     displacements = []
+    scores = {}
+    max_displacement_ref = 0.0
     for rigid_params in rparams:
 
         # Get the rigid transformation
         rigid_matrix = get_rigid_matrix(rigid_params, package)
 
-        # Estimate the max displacment
-        displacements.append(
-            movement_quantity(rigid_matrix, shape, affine, metric="max")[0])
+        # Estimate the max displacement
+        displacement_axis = movement_quantity(rigid_matrix, shape, affine,
+                                              metric="max")[0]
+        if displacement_axis > max_displacement_ref:
+            max_displacement_ref = displacement_axis
+        displacements.append(displacement_axis)
 
     # Save the result in a json
     displacement_file = os.path.join(output_directory, "max_displacement.json")
@@ -98,9 +105,12 @@ def time_serie_mq(image_file, realignment_parameters, package,
     snap_mvt = os.path.join(
         output_directory,
         os.path.basename(realignment_parameters).split(".")[0] + ".pdf")
-    display_drift(rparams, displacements, snap_mvt, package, mvt_thr, rot_thr)
+    scores = display_drift(rparams, displacements, snap_mvt,
+                           package, mvt_thr, rot_thr)
 
-    return snap_mvt, displacement_file
+    scores["max_displacement"] = max_displacement_ref
+
+    return snap_mvt, displacement_file, scores
 
 
 def movement_quantity(rigid, shape, affine, metric="max"):
@@ -245,11 +255,12 @@ def get_rigid_matrix(rigid_params, package):
     """
     # Check if a valide package has been specified
     if package not in ["FSL", "SPM"]:
-        raise ValueError("Uknown package '{0}'.".format(srcpckg))
+        raise ValueError("Uknown package '{0}'.".format(package))
 
     # FSL reorganization
     if package == "FSL":
-        rigid_params = rigid_params[3, 4, 5, 0, 1, 2]
+#        rigid_params = rigid_params[3, 4, 5, 0, 1, 2]
+        rigid_params = numpy.roll(rigid_params, 3)
 
     # Get the translation
     T = rigid_params[0:3]
@@ -270,6 +281,7 @@ def get_rigid_matrix(rigid_params, package):
     #    |1         0      0|
     #
     # R = ZYX
+
     R = numpy.eye(3)
     rotfunc1 = lambda x: numpy.array([[numpy.cos(x), -numpy.sin(x)],
                                       [numpy.sin(x), numpy.cos(x)]])
@@ -291,10 +303,10 @@ def get_rigid_matrix(rigid_params, package):
     return rigid
 
 
-def display_drift(rigid_params, maxdisplacment, output_fname, package,
+def display_drift(rparams, maxdisplacment, output_fname, package,
                   mvt_thr=1.5, rot_thr=0.5):
     """ Generate an image representing translation and rotation parameters.
-
+        and compute max translation and rotation during acquisition
     Parameters
     ----------
     rigid_params: array [6,]
@@ -321,20 +333,34 @@ def display_drift(rigid_params, maxdisplacment, output_fname, package,
 
     # Check if a valide package has been specified
     if package not in ["FSL", "SPM"]:
-        raise ValueError("Uknown package '{0}'.".format(srcpckg))
+        raise ValueError("Uknown package '{0}'.".format(package))
 
     # FSL reorganization
     if package == "FSL":
-        temp = rigid_params[:, :3]
-        rigid_params[:, :3] = rigid_params[:, 3:]
-        rigid_params[:, 3:] = temp
+#        temp = rigid_params[:, :3]
+#        rigid_params[:, :3] = rigid_params[:, 3:]
+#        rigid_params[:, 3:] = temp
+        rparams = numpy.roll(rparams, 3, axis=1)
 
     # Create the volume axis
-    x = range(1, rigid_params.shape[0] + 1)
+    x = range(1, rparams.shape[0] + 1)
 
     # Go through all timepoints
     pdf = PdfPages(output_fname)
     try:
+
+        # we'll compute max translation and max rotation here
+        max_trans = 0
+        max_rot = 0
+        for index in range(rparams.shape[0]):
+            rparam = rparams[index, :]
+            trans = numpy.sqrt(numpy.sum(rparam[:3] ** 2))
+            rot = numpy.max(rparam[3:]) * 180. / numpy.pi
+
+            if trans > max_trans:
+                max_trans = trans
+            if rot > max_rot:
+                max_rot = rot
 
         # Display translation parameters
         fig = plt.figure()
@@ -343,10 +369,10 @@ def display_drift(rigid_params, maxdisplacment, output_fname, package,
         plt.title("Translation drift (in mm)")
         outliers = []
         for i, label in enumerate(["x", "y", "z"]):
-            plot.plot(x, rigid_params[:, i], label=label)
+            plot.plot(x, rparams[:, i], label=label)
             outliers.extend(
                 numpy.where(
-                    numpy.abs(rigid_params[:, i]) > mvt_thr)[0].tolist())
+                    numpy.abs(rparams[:, i]) > mvt_thr)[0].tolist())
         for pos in set(outliers):
             plot.axvline(x=pos, linewidth=1, color="b")
         plot.legend()
@@ -362,10 +388,10 @@ def display_drift(rigid_params, maxdisplacment, output_fname, package,
         plt.title("Rotation drift (in degree)")
         outliers = []
         for i, label in enumerate(["pitch", "roll", "yaw"]):
-            plot.plot(x, rigid_params[:, i + 3] * 180. / numpy.pi, label=label)
+            plot.plot(x, rparams[:, i + 3] * 180. / numpy.pi, label=label)
             outliers.extend(
                 numpy.where(
-                    numpy.abs(rigid_params[:, i + 3]) > rot_thr)[0].tolist())
+                    numpy.abs(rparams[:, i + 3]) > rot_thr)[0].tolist())
         for pos in set(outliers):
             plot.axvline(x=pos, linewidth=1, color="b")
         plot.legend()
@@ -392,6 +418,9 @@ def display_drift(rigid_params, maxdisplacment, output_fname, package,
         pdf.close()
         raise
 
+    return {"max_translation (mm)": round(max_trans, 2),
+            "max_rotation (degree)": round(max_rot, 2)}
+
 
 if __name__ == "__main__":
 
@@ -400,10 +429,10 @@ if __name__ == "__main__":
     trans = [0, 0, 0]
     rigid = numpy.array([
         [numpy.cos(alpha), -numpy.sin(alpha), 0, trans[0]],
-        [numpy.sin(alpha), numpy.cos(alpha),0, trans[1]],
+        [numpy.sin(alpha), numpy.cos(alpha), 0, trans[1]],
         [0, 0, 1, trans[2]],
         [0, 0, 0, 1]
-    ],dtype=numpy.single)
+    ], dtype=numpy.single)
 
     # Compute the dispalcement
     dispalcement = deformation_field(rigid, (2, 2, 2), numpy.eye(4))
@@ -413,7 +442,6 @@ if __name__ == "__main__":
     mq = movement_quantity(rigid, (2, 2, 2), numpy.eye(4), "stat")
     print mq
 
-
     # Real data test
     from caps.toy_datasets import get_sample_data
     import logging
@@ -421,6 +449,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     localizer_dataset = get_sample_data("localizer")
-    time_serie_mq(localizer_dataset.fmri, localizer_dataset.mouvment_parameters,
+    time_serie_mq(localizer_dataset.fmri,
+                  localizer_dataset.mouvment_parameters,
                   "SPM", "/volatile/nsap/catalogue/quality_assurance/",
                   time_axis=-1, slice_axis=-2)
